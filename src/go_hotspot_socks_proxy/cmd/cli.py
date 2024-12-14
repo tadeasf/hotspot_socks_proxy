@@ -1,33 +1,47 @@
 import typer
-from typing import Optional
-import multiprocessing
-from . import find_wifi, socks
+import sys
+import os
 from rich.console import Console
+from ..core.network import scan_interfaces
+from ..core.proxy import create_proxy_server
 
-app = typer.Typer(help="SOCKS proxy for routing traffic through WiFi interface")
 console = Console()
+app = typer.Typer(help="SOCKS proxy for routing traffic through WiFi interface")
 
-@app.command()
-def wifi():
-    """Show WiFi interface information"""
-    find_wifi.show_wifi_info()
+def check_root():
+    """Check if the script is running with root privileges"""
+    if os.name == 'nt':  # Windows
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+    else:  # Unix-like
+        return os.geteuid() == 0
 
-@app.command()
-def proxy(
-    port: int = typer.Option(9050, help="Port to run the proxy on"),
-    processes: int = typer.Option(None, help="Number of processes (default: CPU count)")
+@app.command(name="proxy")
+def start_proxy(
+    processes: int = typer.Option(None, "--processes", "-p", help="Number of proxy processes (default: CPU count)"),
+    port: int = typer.Option(9050, "--port", help="Port to listen on")
 ):
-    """Start SOCKS proxy server"""
+    """Start the SOCKS proxy server"""
+    if not check_root():
+        console.print("[red]This program requires root privileges to run properly.")
+        console.print("[yellow]Please run with sudo or as root.")
+        sys.exit(1)
+    
+    # Get available interfaces
+    interface = scan_interfaces()
+    if not interface:
+        console.print("[red]No suitable network interface found")
+        return
+    
     try:
-        info = find_wifi.get_interface_info()
-        if info['status'].lower() != 'active':
-            console.print("[red]WiFi interface is not active!")
-            raise typer.Exit(1)
-        
-        socks.run_socks_proxy(info['ip'], port, processes)
+        create_proxy_server(interface.ip, port, processes or os.cpu_count())
+    except KeyboardInterrupt:
+        pass
     except Exception as e:
         console.print(f"[red]Error: {e}")
-        raise typer.Exit(1)
 
 if __name__ == "__main__":
     app()

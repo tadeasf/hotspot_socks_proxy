@@ -18,6 +18,8 @@ mdurl==0.1.2
     # via markdown-it-py
 prompt-toolkit==3.0.48
     # via go-hotspot-socks-proxy
+psutil==6.1.0
+    # via go-hotspot-socks-proxy
 pygments==2.18.0
     # via rich
 rich==13.9.4
