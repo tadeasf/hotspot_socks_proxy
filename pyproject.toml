@@ -1,0 +1,31 @@
+[project]
+name = "go-hotspot-socks-proxy"
+version = "1.0.0"
+description = "SOCKS proxy for routing traffic through WiFi interface"
+authors = [
+    { name = "tadeasf", email = "business@tadeasfort.com" }
+]
+dependencies = [
+    "typer>=0.15.1",
+    "prompt-toolkit>=3.0.48",
+    "rich>=13.9.4",
+]
+readme = "README.md"
+requires-python = ">= 3.12"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/go_hotspot_socks_proxy"]
+
+[project.scripts]
+hotspot-proxy = "go_hotspot_socks_proxy.cmd.cli:app"
