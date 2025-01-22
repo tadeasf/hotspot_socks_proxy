@@ -16,6 +16,8 @@ import time
 import psutil
 import sys
 import os
+import dns.resolver
+import dns.exception
 
 console = Console()
 
@@ -98,48 +100,61 @@ class ProxyUI:
     def _get_stats_text(self):
         stats = proxy_stats
         bandwidth = stats.get_bandwidth()
-        uptime = datetime.now() - stats.start_time
-        
-        cpu_percent = psutil.cpu_percent(interval=None)
-        memory = psutil.Process().memory_info()
-        
-        # Get interface info
-        interface_info = "Unknown"
-        for interface, addrs in psutil.net_if_addrs().items():
-            for addr in addrs:
-                if addr.family == socket.AF_INET and addr.address == self.server_ip:
-                    interface_info = f"{interface} ({addr.address})"
-                    break
-        
-        # Adjust the box width based on interface info length
-        box_width = max(50, len(interface_info) + 10)
-        border = "═" * (box_width - 2)
         
         return [
-            ('class:title', f'\n╔{border}╗\n'),
-            ('class:stats', f'║ Interface: {interface_info:<{box_width-13}} ║\n'),
-            ('class:stats', f'║ Active Connections: {stats.active_connections:<{box_width-22}} ║\n'),
-            ('class:stats', f'║ Current Bandwidth: {self._format_bytes(bandwidth)}/s{" "*(box_width-25)} ║\n'),
-            ('class:stats', f'║ Total Data Sent: {self._format_bytes(stats.total_bytes_sent)}{" "*(box_width-23)} ║\n'),
-            ('class:stats', f'║ Total Data Received: {self._format_bytes(stats.total_bytes_received)}{" "*(box_width-27)} ║\n'),
-            ('class:stats', f'║ Uptime: {str(uptime).split(".")[0]}{" "*(box_width-12)} ║\n'),
-            ('class:stats', f'║ CPU Usage: {cpu_percent}%{" "*(box_width-15)} ║\n'),
-            ('class:stats', f'║ Memory Usage: {self._format_bytes(memory.rss)}{" "*(box_width-20)} ║\n'),
-            ('class:title', f'╚{border}╝\n'),
-            ('class:footer', '\nPress Ctrl-C to exit')
+            ('class:title', f'\n SOCKS5 Proxy: {self.server_ip}:9050\n'),
+            ('class:title', ' ' + '─' * 30 + '\n'),
+            ('class:stats', f' Bandwidth: {self._format_bytes(bandwidth)}/s\n'),
+            ('class:stats', f' Active Connections: {stats.active_connections}\n'),
+            ('class:footer', '\n Press Ctrl-C to exit')
         ]
 
     def _format_bytes(self, bytes_):
         for unit in ['B', 'KB', 'MB', 'GB']:
             if bytes_ < 1024:
-                return f"{bytes_:.2f} {unit}"
+                return f"{bytes_:.1f} {unit}"
             bytes_ /= 1024
-        return f"{bytes_:.2f} TB"
+        return f"{bytes_:.1f} TB"
 
     def run(self):
         self.app.run()
 
 class SocksHandler(socketserver.BaseRequestHandler):
+    def resolve_dns(self, domain: str) -> str:
+        """Resolve DNS using explicit DNS resolvers"""
+        # Create custom resolver
+        resolver = dns.resolver.Resolver()
+        
+        # Set custom DNS servers
+        resolver.nameservers = [
+            '8.8.8.8',      # Google DNS
+            '8.8.4.4',      # Google DNS Secondary
+            '1.1.1.1',      # Cloudflare
+            '1.0.0.1',      # Cloudflare Secondary
+        ]
+        
+        # Set timeout values
+        resolver.timeout = 3
+        resolver.lifetime = 5
+        
+        try:
+            # Perform DNS query
+            answers = resolver.resolve(domain, 'A')
+            if answers:
+                # Return the first IP address
+                return str(answers[0])
+            raise Exception(f"No A records found for {domain}")
+            
+        except dns.exception.DNSException as e:
+            console.print(f"[yellow]DNS resolution failed for {domain}: {str(e)}")
+            # Try system resolver as fallback
+            try:
+                ip = socket.gethostbyname(domain)
+                console.print(f"[green]Resolved {domain} using system resolver: {ip}")
+                return ip
+            except socket.gaierror as e:
+                raise Exception(f"Both custom and system DNS resolution failed: {str(e)}")
+
     def handle(self):
         proxy_stats.connection_started()
         try:
@@ -176,41 +191,42 @@ class SocksHandler(socketserver.BaseRequestHandler):
             try:
                 if cmd == b'\x01':  # CONNECT
                     remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    # Set socket options to prevent using default route
                     remote.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    remote.setsockopt(socket.SOL_SOCKET, socket.SO_DONTROUTE, 0)
-                    remote.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, 64)
                     
-                    # Explicitly bind to WiFi interface IP
+                    # Force the connection through WiFi interface by binding to its IP
                     wifi_ip = self.server.server_address[0]
                     remote.bind((wifi_ip, 0))
-                    
-                    # Log connection details
-                    console.print(f"[blue]Connecting to {addr}:{port} via {wifi_ip}")
                     
                     # Resolve address if it's a domain
                     if atyp == b'\x03':
                         try:
-                            addr = socket.gethostbyname(addr)
-                        except socket.gaierror as e:
-                            console.print(f"[red]DNS resolution failed: {e}")
+                            resolved_ip = self.resolve_dns(addr)
+                            console.print(f"[green]Successfully resolved {addr} to {resolved_ip}")
+                            addr = resolved_ip
+                        except Exception as e:
+                            console.print(f"[red]DNS resolution failed for {addr}: {e}")
                             return
                     
-                    remote.connect((addr, port))
-                    local = remote.getsockname()
+                    try:
+                        remote.settimeout(10)  # 10 second timeout for connection
+                        remote.connect((addr, port))
+                        remote.settimeout(None)  # Reset timeout for data transfer
+                        console.print(f"[green]Connected to {addr}:{port}")
+                    except Exception as e:
+                        console.print(f"[red]Connection failed to {addr}:{port}: {e}")
+                        return
                     
-                    # Verify the binding worked
-                    actual_ip = local[0]
-                    if actual_ip != wifi_ip:
-                        console.print(f"[red]Warning: Connection using {actual_ip} instead of {wifi_ip}")
+                    # Verify the connection is using the correct interface
+                    bound_ip = remote.getsockname()[0]
+                    if not bound_ip.startswith(wifi_ip.rsplit('.', 1)[0]):
+                        console.print(f"[red]Warning: Connection not using WiFi interface")
                         remote.close()
                         return
                     
                     reply = struct.pack("!BBBB", 5, 0, 0, 1)
-                    reply += socket.inet_aton(local[0]) + struct.pack(">H", local[1])
+                    reply += socket.inet_aton(bound_ip) + struct.pack(">H", remote.getsockname()[1])
                     self.request.send(reply)
                     
-                    # Start forwarding with improved buffer size
                     self.forward(self.request, remote)
                 else:
                     return
@@ -252,6 +268,15 @@ class SocksHandler(socketserver.BaseRequestHandler):
         local.close()
         remote.close()
 
+def get_interface_name(ip):
+    """Get interface name from IP address"""
+    import psutil
+    for interface, addrs in psutil.net_if_addrs().items():
+        for addr in addrs:
+            if addr.family == socket.AF_INET and addr.address == ip:
+                return interface
+    return None
+
 def run_server(host: str, port: int):
     """Individual process server runner"""
     try:
@@ -265,7 +290,6 @@ def run_server(host: str, port: int):
             console.print("[yellow]Warning: Running without root privileges might limit some functionality")
         
         server = SocksProxy((host, port), SocksHandler)
-        console.print(f"[green]Server bound to WiFi interface {host}")
         server.serve_forever()
     except KeyboardInterrupt:
         pass
@@ -291,6 +315,15 @@ def create_proxy_server(host: str, port: int, num_processes: int):
     processes = []
     ui = ProxyUI(server_ip=host)
     
+    # Copy proxy address to clipboard
+    try:
+        import pyperclip
+        proxy_address = f"{host}:{port}"
+        pyperclip.copy(proxy_address)
+        console.print(f"[green]Proxy address {proxy_address} copied to clipboard!")
+    except Exception as e:
+        console.print("[yellow]Could not copy to clipboard:", str(e))
+    
     def run_ui():
         ui.run()
     
@@ -298,8 +331,11 @@ def create_proxy_server(host: str, port: int, num_processes: int):
     ui_thread = threading.Thread(target=run_ui, daemon=True)
     ui_thread.start()
     
+    # Add a single startup message
+    console.print(f"[green]SOCKS5 proxy started on {host}:9050")
+    
     try:
-        # Create and start processes
+        # Create and start processes quietly
         for _ in range(num_processes):
             process = multiprocessing.Process(
                 target=run_server,
@@ -314,7 +350,16 @@ def create_proxy_server(host: str, port: int, num_processes: int):
             for process in list(processes):
                 if not process.is_alive():
                     processes.remove(process)
-                    console.print("[red]A proxy process has died unexpectedly")
+                    # Make this message less noisy
+                    console.print("[red]Process died, restarting...", end="\r")
+                    # Start a new process to replace the dead one
+                    new_process = multiprocessing.Process(
+                        target=run_server,
+                        args=(host, port)
+                    )
+                    new_process.daemon = True
+                    processes.append(new_process)
+                    new_process.start()
                 process.join(timeout=0.1)
                 
     except KeyboardInterrupt:

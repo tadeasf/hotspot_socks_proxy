@@ -10,25 +10,29 @@
 #   universal: false
 
 -e file:.
-click==8.1.7
+click==8.1.8
     # via typer
+dnspython==2.7.0
+    # via hotspot-socks-proxy
 markdown-it-py==3.0.0
     # via rich
 mdurl==0.1.2
     # via markdown-it-py
-prompt-toolkit==3.0.48
-    # via go-hotspot-socks-proxy
-psutil==6.1.0
-    # via go-hotspot-socks-proxy
-pygments==2.18.0
+prompt-toolkit==3.0.50
+    # via hotspot-socks-proxy
+psutil==6.1.1
+    # via hotspot-socks-proxy
+pygments==2.19.1
     # via rich
+pyperclip==1.9.0
+    # via hotspot-socks-proxy
 rich==13.9.4
-    # via go-hotspot-socks-proxy
+    # via hotspot-socks-proxy
     # via typer
 shellingham==1.5.4
     # via typer
 typer==0.15.1
-    # via go-hotspot-socks-proxy
+    # via hotspot-socks-proxy
 typing-extensions==4.12.2
     # via typer
 wcwidth==0.2.13
