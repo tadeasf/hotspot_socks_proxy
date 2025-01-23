@@ -26,9 +26,8 @@ import os
 import socket
 import socketserver
 import time
-from pathlib import Path
+from typing import Final
 
-import psutil
 import pyperclip
 from loguru import logger
 from rich.console import Console
@@ -43,10 +42,10 @@ console = Console()
 ProcessList = list[multiprocessing.Process]
 
 # Constants
-BANDWIDTH_THRESHOLD = 100  # Bytes
-PROCESS_JOIN_TIMEOUT = 1.0  # Seconds
-STARTUP_DELAY = 0.1  # Seconds between process starts
-CLIPBOARD_DELAY = 0.5  # Seconds to wait after clipboard copy
+BANDWIDTH_THRESHOLD: Final = 100  # Bytes
+PROCESS_JOIN_TIMEOUT: Final = 1.0  # Seconds
+STARTUP_DELAY: Final = 0.1  # Seconds between process starts
+CLIPBOARD_DELAY: Final = 0.5  # Seconds to wait after clipboard copy
 
 
 class SocksProxy(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -64,35 +63,6 @@ class SocksProxy(socketserver.ThreadingMixIn, socketserver.TCPServer):
         super().server_bind()
 
 
-def is_wifi_interface(ip: str) -> bool:
-    """Verify if the IP belongs to the WiFi interface."""
-    try:
-        for interface, addrs in psutil.net_if_addrs().items():
-            # Skip virtual and loopback interfaces
-            if interface.startswith(("lo", "vmnet", "docker", "veth", "bridge", "utun")):
-                continue
-
-            # Check if interface has the IP we're looking for
-            if any(addr.address == ip for addr in addrs if addr.family == socket.AF_INET):
-                # Check if it's a wireless interface
-                if os.name != "nt":  # Unix-like systems
-                    # Check for wireless extensions
-                    wireless_path = Path(f"/sys/class/net/{interface}/wireless")
-                    if wireless_path.exists():
-                        return True
-                    # Check interface name patterns
-                    if interface.startswith(("wlan", "wifi", "en", "wlp", "wl", "ap")):
-                        return True
-                elif interface.startswith(("Wi-Fi", "wlan", "WLAN")):  # Windows
-                    return True
-
-        logger.warning(f"IP {ip} found but not on a wireless interface")
-        return False
-    except Exception as e:
-        logger.error(f"Error checking wireless interface: {e}")
-        return False
-
-
 def run_server(host: str, port: int) -> None:
     """Individual process server runner.
 
@@ -102,17 +72,10 @@ def run_server(host: str, port: int) -> None:
     """
     server: SocksProxy | None = None
     try:
-        if not is_wifi_interface(host):
-            logger.error(f"{host} is not the WiFi interface IP")
-            console.print(f"[red]Error: {host} is not the WiFi interface IP")
-            return
-
         if os.name != "nt" and os.geteuid() != 0:
             logger.warning("Running without root privileges")
             console.print(
-                """
-            [yellow]Warning: Running without root privileges may limit functionality.
-                """
+                "[yellow]Warning: Running without root privileges may limit functionality."
             )
 
         server = SocksProxy((host, port), SocksHandler)
@@ -131,13 +94,7 @@ def run_server(host: str, port: int) -> None:
 
 
 def create_proxy_server(host: str, port: int, num_processes: int) -> None:
-    """Create and start a multi-process SOCKS proxy server.
-
-    Args:
-        host: Host address to bind to
-        port: Port number to listen on
-        num_processes: Number of worker processes to start
-    """
+    """Create and start a multi-process SOCKS proxy server."""
     processes: ProcessList = []
 
     try:
@@ -148,9 +105,9 @@ def create_proxy_server(host: str, port: int, num_processes: int) -> None:
 
         # Copy address to clipboard
         try:
-            proxy_address = f"{host}:{port}"
+            proxy_address = f"socks5://{host}:{port}"  # Added SOCKS5 protocol
             pyperclip.copy(proxy_address)
-            console.print("[bold green]Proxy address copied to clipboard")
+            console.print("[bold green]SOCKS5 proxy address copied to clipboard")
             time.sleep(CLIPBOARD_DELAY)
         except Exception as e:
             console.print(f"[yellow]Could not copy to clipboard: {e}")
@@ -163,6 +120,9 @@ def create_proxy_server(host: str, port: int, num_processes: int) -> None:
             processes.append(process)
             process.start()
             time.sleep(STARTUP_DELAY)
+
+        console.print(f"\n[bold green]SOCKS5 proxy server running on {host}:{port}")
+        console.print("[yellow]Use Ctrl+C to stop the server\n")
 
         # Keep the main process running until interrupted
         try:
