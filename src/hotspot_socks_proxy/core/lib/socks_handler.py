@@ -80,15 +80,31 @@ class SocksHandler(socketserver.BaseRequestHandler):
 
         self.request.send(response)
 
+    def _create_outbound_socket(self) -> socket.socket:
+        """Create a socket bound to our chosen interface."""
+        remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        remote.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        # Set IP_TRANSPARENT to allow binding to a specific interface
+        if hasattr(socket, "IP_TRANSPARENT"):
+            remote.setsockopt(socket.SOL_IP, socket.IP_TRANSPARENT, 1)
+
+        # Bind to the interface IP
+        remote.bind((self.server.server_address[0], 0))
+
+        # Set source routing if available
+        if hasattr(socket, "SO_BINDTODEVICE"):
+            # Get interface name from server
+            iface_name = self.server.interface_name if hasattr(self.server, "interface_name") else None
+            if iface_name:
+                remote.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, iface_name.encode())
+
+        return remote
+
     def handle_domain_connection(self, domain: str, port: int) -> socket.socket | None:
         """Handle connection to domain name address."""
         try:
-            # Create socket and bind it to our chosen interface
-            remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            remote.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-            # Bind to the interface IP we're supposed to use
-            remote.bind((self.server.server_address[0], 0))
+            remote = self._create_outbound_socket()
 
             # Resolve domain
             addrinfo = socket.getaddrinfo(domain, port, socket.AF_INET, socket.SOCK_STREAM)
@@ -96,7 +112,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
                 return None
 
             # Try each resolved address
-            for *_, addr in addrinfo:  # Ignore unused variables
+            for *_, addr in addrinfo:
                 try:
                     remote.connect(addr)
                     return remote
@@ -109,12 +125,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
     def handle_connect(self, address: str, port: int) -> None:
         """Handle CONNECT command."""
         try:
-            # Create socket and bind it to our chosen interface
-            remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            remote.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-            # Bind to the interface IP we're supposed to use
-            remote.bind((self.server.server_address[0], 0))
+            remote = self._create_outbound_socket()
 
             try:
                 remote.connect((address, port))

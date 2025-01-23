@@ -1,6 +1,6 @@
 [project]
 name = "hotspot-socks-proxy"
-version = "3.3.11"
+version = "3.3.13"
 description = "SOCKS proxy for routing traffic through WiFi interface"
 authors = [
     { name = "tadeasf", email = "business@tadeasfort.com" }
