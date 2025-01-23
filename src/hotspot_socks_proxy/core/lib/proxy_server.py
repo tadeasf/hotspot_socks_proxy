@@ -26,14 +26,14 @@ import os
 import socket
 import socketserver
 import time
-from typing import Optional
 
 import psutil
 import pyperclip
 from rich.console import Console
 
-from .socks_handler import SocksHandler
 from hotspot_socks_proxy.core.utils.prompt.proxy_ui import create_proxy_ui
+
+from .socks_handler import SocksHandler
 
 console = Console()
 
@@ -87,7 +87,9 @@ def run_server(host: str, port: int) -> None:
 
         if os.name != "nt" and os.geteuid() != 0:
             console.print(
-                "[yellow]Warning: Running without root privileges may limit functionality."
+                """
+            [yellow]Warning: Running without root privileges may limit functionality.
+                """
             )
 
         server = SocksProxy((host, port), SocksHandler)

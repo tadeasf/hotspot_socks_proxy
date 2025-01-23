@@ -1,17 +1,15 @@
-name: Deploy MkDocs Documentation
+name: Generate and Deploy Documentation
 
 on:
   push:
     branches: ["main"]
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -20,30 +18,78 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Setup Python
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
+          python-version: "3.10"
+          cache: "pip"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r docs/requirements.txt
-          pip install .
-          
-      - name: Build documentation
-        run: mkdocs build
-        
+          pip install pdoc3 toml
+
+      - name: Generate API documentation
+        run: |
+          # Create docs directory
+          mkdir -p docs
+
+          # Generate documentation using pdoc3
+          pdoc --html --output-dir docs \
+               --config show_source_code=True \
+               --config show_type_annotations=True \
+               --config sort_identifiers=True \
+               --force \
+               src/hotspot_socks_proxy
+
+          # Move files from nested directory
+          mv docs/hotspot_socks_proxy/* docs/
+          rm -r docs/hotspot_socks_proxy
+
+          # Create Jekyll front matter for index
+          cat > docs/index.md << EOF
+          ---
+          layout: default
+          title: Hotspot SOCKS Proxy Documentation
+          ---
+
+          # Hotspot SOCKS Proxy Documentation
+
+          Welcome to the documentation for the Hotspot SOCKS Proxy project.
+
+          ## Overview
+
+          This project provides a SOCKS proxy server implementation for routing traffic through WiFi interfaces.
+
+          ## Installation
+
+          \`\`\`bash
+          pip install hotspot-socks-proxy
+          \`\`\`
+
+          ## Quick Start
+
+          See the API Reference section for detailed documentation of all modules and classes.
+          EOF
+
+          # Create Jekyll config
+          cat > docs/_config.yml << EOF
+          title: Hotspot SOCKS Proxy
+          description: Documentation for the Hotspot SOCKS Proxy project
+          theme: jekyll-theme-minimal
+          markdown: kramdown
+          kramdown:
+            input: GFM
+            syntax_highlighter: rouge
+          EOF
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: docs
 
   deploy:
     environment:
@@ -54,4 +100,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 
+        uses: actions/deploy-pages@v4

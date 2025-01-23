@@ -29,25 +29,53 @@ Example:
 import threading
 import time
 from collections import deque
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 class ProxyStats:
-    def __init__(self):
+    """Thread-safe statistics tracker for SOCKS proxy server.
+
+    Maintains real-time statistics about proxy server operations including:
+    - Active connection count
+    - Bandwidth usage and history
+    - Total bytes transferred
+    - Server uptime
+
+    All operations are thread-safe using internal locking mechanisms.
+    """
+
+    def __init__(self) -> None:
+        """Initialize proxy statistics tracker.
+
+        Creates a new statistics tracker with zeroed counters and
+        an empty bandwidth history buffer. Initializes thread lock
+        and records start time with timezone awareness.
+        """
         self.active_connections = 0
         self.total_bytes_sent = 0
         self.total_bytes_received = 0
         self.bandwidth_history = deque(maxlen=60)  # Last 60 seconds
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(tz=UTC)
         self._lock = threading.Lock()
 
-    def update_bytes(self, sent: int, received: int):
+    def update_bytes(self, sent: int, received: int) -> None:
+        """Update byte transfer statistics.
+
+        Args:
+            sent: Number of bytes sent
+            received: Number of bytes received
+        """
         with self._lock:
             self.total_bytes_sent += sent
             self.total_bytes_received += received
             self.bandwidth_history.append((sent + received, time.time()))
 
-    def get_bandwidth(self):
+    def get_bandwidth(self) -> float:
+        """Calculate current bandwidth usage in bytes per second.
+
+        Returns:
+            float: Average bandwidth usage over last 5 seconds in bytes/second
+        """
         with self._lock:
             now = time.time()
             # Calculate bandwidth over last 5 seconds
@@ -60,11 +88,13 @@ class ProxyStats:
             total_bytes = sum(bytes_ for bytes_, _ in recent)
             return total_bytes / 5  # bytes per second
 
-    def connection_started(self):
+    def connection_started(self) -> None:
+        """Increment the active connection counter."""
         with self._lock:
             self.active_connections += 1
 
-    def connection_ended(self):
+    def connection_ended(self) -> None:
+        """Decrement the active connection counter."""
         with self._lock:
             self.active_connections -= 1
 
