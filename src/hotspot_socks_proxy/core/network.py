@@ -56,28 +56,11 @@ def scan_interfaces() -> NetworkInterface | None:
         interfaces = []
         for name, addrs in psutil.net_if_addrs().items():
             # Skip loopback and virtual interfaces
-            if name.startswith(
-                (
-                    "lo",
-                    "vmnet",
-                    "docker",
-                    "veth",
-                    "bridge",
-                    "utun",
-                    "llw",
-                    "awdl",
-                    "anpi",
-                    "stf",
-                    "gif",
-                    "ap",
-                )
-            ):
+            if name.startswith(("lo", "vmnet", "docker", "veth", "bridge")):
                 continue
 
             # Get IPv4 address
-            ipv4 = next(
-                (addr.address for addr in addrs if addr.family == socket.AF_INET), None
-            )
+            ipv4 = next((addr.address for addr in addrs if addr.family == socket.AF_INET), None)
             if not ipv4:
                 continue
 
@@ -86,48 +69,19 @@ def scan_interfaces() -> NetworkInterface | None:
             if not stats or not stats.isup:
                 continue
 
-            # Get interface status
-            try:
-                import shutil
-                import subprocess
+            # Simplified wireless detection - look for common wireless interface names
+            is_wireless = any(name.startswith(prefix) for prefix in ("wlan", "wifi", "en", "wlp", "wl"))
 
-                ifconfig_path = shutil.which("ifconfig")
-                if not ifconfig_path:
-                    console.log("ifconfig not found")
-                    continue
-
-                result = subprocess.run(
-                    [ifconfig_path, name], capture_output=True, text=True, check=False
-                )
-                is_active = "status: active" in result.stdout
-                if not is_active:
-                    continue
-            except Exception as e:
-                console.log(f"Error checking interface {name}: {e!s}")
-                continue
-
-            # Determine if it's a wireless interface (macOS specific)
-            is_wireless = name == "en0"  # On macOS, en0 is typically the built-in WiFi
-
-            interfaces.append(
-                NetworkInterface(
-                    name=name, ip=ipv4, is_up=True, is_wireless=is_wireless
-                )
-            )
+            interfaces.append(NetworkInterface(name=name, ip=ipv4, is_up=True, is_wireless=is_wireless))
 
         progress.update(task, advance=1)
 
-        # First try to find en0 (WiFi on macOS)
-        wifi = next((iface for iface in interfaces if iface.name == "en0"), None)
-        if wifi:
-            return wifi
-
-        # Then try other wireless interfaces
+        # First try to find wireless interfaces
         wireless = [iface for iface in interfaces if iface.is_wireless]
         if wireless:
             return wireless[0]
 
-        # Finally, fall back to any available interface
+        # Fall back to any available interface
         if interfaces:
             return interfaces[0]
 

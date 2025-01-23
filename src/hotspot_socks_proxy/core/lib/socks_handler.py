@@ -66,9 +66,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
         self.request.send(struct.pack("!BB", SOCKS_VERSION, 0))
         return True
 
-    def _send_response(
-        self, status: int, bind_addr: str = "127.0.0.1", bind_port: int = 0
-    ) -> None:
+    def _send_response(self, status: int, bind_addr: str = "127.0.0.1", bind_port: int = 0) -> None:
         """Send SOCKS5 response."""
         # Convert bind address to bytes
         addr_bytes = socket.inet_aton(bind_addr)
@@ -78,6 +76,27 @@ class SocksHandler(socketserver.BaseRequestHandler):
         response += addr_bytes + struct.pack("!H", bind_port)
 
         self.request.send(response)
+
+    def handle_domain_connection(self, domain: str, port: int) -> socket.socket | None:
+        """Handle connection to domain name address."""
+        try:
+            # Simple direct resolution using socket.getaddrinfo
+            addrinfo = socket.getaddrinfo(domain, port, socket.AF_INET, socket.SOCK_STREAM)
+            if not addrinfo:
+                return None
+
+            # Try each resolved address
+            for af, socktype, proto, _, addr in addrinfo:
+                try:
+                    remote = socket.socket(af, socktype, proto)
+                    remote.settimeout(10)
+                    remote.connect(addr)
+                    return remote
+                except OSError:
+                    continue
+            return None
+        except socket.gaierror:
+            return None
 
     def handle(self) -> None:
         """Handle incoming SOCKS5 connection."""
@@ -91,36 +110,36 @@ class SocksHandler(socketserver.BaseRequestHandler):
             # Get command and address
             version, cmd, _, addr_type = struct.unpack("!BBBB", self.request.recv(4))
 
-            if version != SOCKS_VERSION:
-                return
-
-            if cmd != CONNECT_CMD:  # Only support CONNECT
+            if version != SOCKS_VERSION or cmd != CONNECT_CMD:
                 self._send_response(RESP_CMD_NOT_SUPPORTED)
                 return
 
             # Handle different address types
-            if addr_type == ADDR_TYPE_IPV4:  # IPv4
-                addr = socket.inet_ntoa(self.request.recv(4))
-            elif addr_type == ADDR_TYPE_DOMAIN:  # Domain name
-                domain_len = self.request.recv(1)[0]
-                addr = self.request.recv(domain_len).decode()
-            else:
-                self._send_response(RESP_ADDR_NOT_SUPPORTED)
-                return
-
-            port = struct.unpack("!H", self.request.recv(2))[0]
-
-            # Connect to remote
+            remote = None
             try:
-                remote = socket.create_connection((addr, port), timeout=10)
+                if addr_type == ADDR_TYPE_IPV4:  # IPv4
+                    addr = socket.inet_ntoa(self.request.recv(4))
+                    port = struct.unpack("!H", self.request.recv(2))[0]
+                    remote = socket.create_connection((addr, port), timeout=10)
+                elif addr_type == ADDR_TYPE_DOMAIN:  # Domain name
+                    domain_len = self.request.recv(1)[0]
+                    domain = self.request.recv(domain_len).decode()
+                    port = struct.unpack("!H", self.request.recv(2))[0]
+                    remote = self.handle_domain_connection(domain, port)
+
+                if not remote:
+                    self._send_response(RESP_HOST_UNREACHABLE)
+                    return
+
                 bound_addr = remote.getsockname()
                 self._send_response(RESP_SUCCESS, bound_addr[0], bound_addr[1])
-            except OSError as conn_error:
-                console.print(f"[red]Connection failed: {conn_error}")
+                self.forward(self.request, remote)
+
+            except OSError:
+                if remote:
+                    remote.close()
                 self._send_response(RESP_HOST_UNREACHABLE)
                 return
-
-            self.forward(self.request, remote)
 
         except Exception as exc:
             console.print(f"[red]Error handling SOCKS connection: {exc}")
@@ -143,9 +162,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
                     if not data:
                         return
                     other.send(data)
-                    proxy_stats.update_bytes(
-                        len(data), 0 if sock is local else len(data)
-                    )
+                    proxy_stats.update_bytes(len(data), 0 if sock is local else len(data))
                 except OSError as sock_error:
                     console.print(f"[red]Forward error: {sock_error}")
                     return
