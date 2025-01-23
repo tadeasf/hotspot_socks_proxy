@@ -20,13 +20,13 @@ import multiprocessing
 from prompt_toolkit.shortcuts import ProgressBar
 from rich.console import Console
 
-from ..core.proxy import create_proxy_server
+from hotspot_socks_proxy.core.proxy import create_proxy_server
 
 console = Console()
 
 
-def run_socks_proxy(host: str, port: int = 9050, processes: int = None):
-    """Run multi-process SOCKS proxy server"""
+def run_socks_proxy(host: str, port: int = 9050, processes: int | None = None) -> None:
+    """Run multi-process SOCKS proxy server."""
     if not processes:
         processes = multiprocessing.cpu_count()
 
@@ -35,7 +35,8 @@ def run_socks_proxy(host: str, port: int = 9050, processes: int = None):
             pass  # Preparation step
 
     console.print(
-        f"[green]SOCKS5 proxy server started on {host}:{port} with {processes} processes"
+        f"[green]SOCKS5 proxy server started on {host}:{port} "
+        f"with {processes} processes"
     )
 
     try:

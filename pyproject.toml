@@ -1,6 +1,6 @@
 [project]
 name = "hotspot-socks-proxy"
-version = "2.3.9"
+version = "3.0.3"
 description = "SOCKS proxy for routing traffic through WiFi interface"
 authors = [
     { name = "tadeasf", email = "business@tadeasfort.com" }
@@ -11,8 +11,9 @@ dependencies = [
     "rich>=13.9.4",
     "psutil>=5.9.0",
     "pyperclip>=1.9.0",
-    "dnspython>=2.7.0",
     "tomli>=2.2.1",
+    "dnspython>=2.7.0",
+    "mkdocs-gen-files>=0.5.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -33,12 +34,14 @@ hotspot-proxy = "hotspot_socks_proxy.cmd.cli:app"
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "D203",  # no-blank-line-before-class
+    "UP036", # unused-import
+    "RUF022", # unsorted-dunder-all
     "D212",  # multi-line-summary-first-line
     "ANN001", # missing-type-self
     "ANN002", # missing-type-cls

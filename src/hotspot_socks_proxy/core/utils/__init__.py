@@ -1,5 +1,6 @@
 """Utility functions and helpers."""
 
-from .utils import format_bytes
+from hotspot_socks_proxy.core.utils.prompt import PromptHandler, create_proxy_ui
+from hotspot_socks_proxy.core.utils.utils import format_bytes
 
-__all__ = ["format_bytes"]
+__all__ = ["create_proxy_ui", "format_bytes", "PromptHandler"]

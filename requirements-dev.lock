@@ -11,13 +11,38 @@
 
 -e file:.
 click==8.1.8
+    # via mkdocs
     # via typer
 dnspython==2.7.0
     # via hotspot-socks-proxy
+ghp-import==2.1.0
+    # via mkdocs
+jinja2==3.1.5
+    # via mkdocs
+markdown==3.7
+    # via mkdocs
 markdown-it-py==3.0.0
     # via rich
+markupsafe==3.0.2
+    # via jinja2
+    # via mkdocs
 mdurl==0.1.2
     # via markdown-it-py
+mergedeep==1.3.4
+    # via mkdocs
+    # via mkdocs-get-deps
+mkdocs==1.6.1
+    # via mkdocs-gen-files
+mkdocs-gen-files==0.5.0
+    # via hotspot-socks-proxy
+mkdocs-get-deps==0.2.0
+    # via mkdocs
+packaging==24.2
+    # via mkdocs
+pathspec==0.12.1
+    # via mkdocs
+platformdirs==4.3.6
+    # via mkdocs-get-deps
 prompt-toolkit==3.0.50
     # via hotspot-socks-proxy
 psutil==6.1.1
@@ -26,17 +51,28 @@ pygments==2.19.1
     # via rich
 pyperclip==1.9.0
     # via hotspot-socks-proxy
+python-dateutil==2.9.0.post0
+    # via ghp-import
+pyyaml==6.0.2
+    # via mkdocs
+    # via mkdocs-get-deps
+    # via pyyaml-env-tag
+pyyaml-env-tag==0.1
+    # via mkdocs
 rich==13.9.4
     # via hotspot-socks-proxy
     # via typer
 shellingham==1.5.4
     # via typer
+six==1.17.0
+    # via python-dateutil
 tomli==2.2.1
     # via hotspot-socks-proxy
 typer==0.15.1
     # via hotspot-socks-proxy
 typing-extensions==4.12.2
-    # via rich
     # via typer
+watchdog==6.0.0
+    # via mkdocs
 wcwidth==0.2.13
     # via prompt-toolkit

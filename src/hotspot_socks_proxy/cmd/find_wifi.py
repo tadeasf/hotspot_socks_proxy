@@ -17,20 +17,31 @@ Example:
 
 import re
 import subprocess
+from pathlib import Path
 
-from prompt_toolkit.shortcuts import ProgressBar
 from rich.console import Console
 from rich.table import Table
 
 console = Console()
 
 
-def get_interface_info():
-    with ProgressBar(title="Scanning network interfaces...") as pb:
-        for _ in pb(range(1)):
-            result = subprocess.run(
-                ["ifconfig", "en0"], capture_output=True, text=True, check=False
-            )
+def get_interface_info() -> dict[str, str]:
+    """Get information about the network interface.
+
+    Returns:
+        dict[str, str]: Dictionary containing interface information with keys:
+            - ip: IP address
+            - mac: MAC address
+            - status: Interface status
+    """
+    result = subprocess.run(
+        [str(Path("/sbin/ifconfig")), "en0"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return {"ip": "Not found", "mac": "Not found", "status": "Error"}
 
     output = result.stdout
 
@@ -46,7 +57,15 @@ def get_interface_info():
     }
 
 
-def show_wifi_info():
+def show_wifi_info() -> dict[str, str]:
+    """Display WiFi interface information and return the interface details.
+
+    Returns:
+        dict[str, str]: Dictionary containing interface information with keys:
+            - ip: IP address
+            - mac: MAC address
+            - status: Interface status
+    """
     info = get_interface_info()
 
     table = Table(title="WiFi Interface (en0) Information")
