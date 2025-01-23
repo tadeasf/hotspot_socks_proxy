@@ -101,17 +101,17 @@ class HTTPProxy:
             )
 
             while self.running:
-                try:
-                    client_socket, client_address = self.server_socket.accept()
-                    thread = threading.Thread(
-                        target=self.handle_client,
-                        args=(client_socket, client_address),
-                        daemon=True,
-                    )
-                    thread.start()
-                except OSError:
-                    continue
+                client_socket, client_address = self.server_socket.accept()
+                thread = threading.Thread(
+                    target=self.handle_client,
+                    args=(client_socket, client_address),
+                    daemon=True,
+                )
+                thread.start()
 
+        except OSError:
+            if self.running:  # Only log if not shutting down
+                console.print("[yellow]Connection error occurred")
         except KeyboardInterrupt:
             self.running = False
             console.print("\n[yellow]Shutting down HTTP proxy server...")

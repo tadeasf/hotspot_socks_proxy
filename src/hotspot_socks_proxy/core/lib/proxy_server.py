@@ -29,9 +29,9 @@ import time
 
 import psutil
 import pyperclip
+from loguru import logger
 from rich.console import Console
 
-from hotspot_socks_proxy.core.utils.log_config import logger
 from hotspot_socks_proxy.core.utils.prompt.proxy_ui import create_proxy_ui
 
 from .socks_handler import SocksHandler
@@ -144,12 +144,33 @@ def create_proxy_server(host: str, port: int, num_processes: int) -> None:
             process.start()
             time.sleep(STARTUP_DELAY)
 
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Shutting down proxy server...")
+        # Keep the main process running until interrupted
+        try:
+            while True:
+                # Check if any process died and restart it
+                for i, process in enumerate(processes):
+                    if not process.is_alive():
+                        logger.warning(f"Process {i} died, restarting...")
+                        process.join(timeout=PROCESS_JOIN_TIMEOUT)
+                        new_process = multiprocessing.Process(target=run_server, args=(host, port))
+                        new_process.daemon = True
+                        new_process.start()
+                        processes[i] = new_process
+                time.sleep(1)  # Check every second
+        except KeyboardInterrupt:
+            logger.info("Received shutdown signal")
+            console.print("\n[yellow]Shutting down proxy server...")
+
+    except Exception as e:
+        logger.exception("Error in proxy server")
+        console.print(f"[red]Error: {e}")
     finally:
+        logger.info("Cleaning up processes...")
         for process in processes:
             if process.is_alive():
                 process.terminate()
                 process.join(timeout=PROCESS_JOIN_TIMEOUT)
                 if process.is_alive():
+                    logger.warning("Force killing process...")
                     process.kill()
+        logger.info("All processes terminated")

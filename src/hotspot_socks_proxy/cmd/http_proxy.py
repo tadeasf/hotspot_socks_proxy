@@ -84,8 +84,8 @@ class HTTPProxy:
             )
 
             while self.running:
+                client_socket, client_address = self.server_socket.accept()
                 try:
-                    client_socket, client_address = self.server_socket.accept()
                     self.handle_client(client_socket, client_address)
                 except OSError:
                     continue

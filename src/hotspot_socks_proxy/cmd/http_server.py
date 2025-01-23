@@ -90,11 +90,12 @@ class HTTPServer:
             console.print(f"[green]HTTP server listening on {self.host}:{self.port}")
 
             while self.running:
+                client_socket, client_address = self.server_socket.accept()
                 try:
-                    client_socket, client_address = self.server_socket.accept()
                     self.handle_client(client_socket, client_address)
-                except OSError as e:
-                    console.print(f"[yellow]Connection error: {e}")
+                except OSError:
+                    # Log error but continue accepting connections
+                    console.print("[yellow]Connection error occurred")
                     continue
 
         except KeyboardInterrupt:

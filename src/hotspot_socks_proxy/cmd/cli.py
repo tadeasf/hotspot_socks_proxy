@@ -23,12 +23,13 @@ import os
 import sys
 
 import typer
+from loguru import logger
 from rich.console import Console
 
 from hotspot_socks_proxy import __version__
 from hotspot_socks_proxy.core.network import scan_interfaces
 from hotspot_socks_proxy.core.proxy import create_proxy_server
-from hotspot_socks_proxy.core.utils.log_config import LOG_DIR, logger
+from hotspot_socks_proxy.core.utils.log_config import LOG_DIR
 
 console = Console()
 app = typer.Typer(help="SOCKS proxy for routing traffic through WiFi interface")
@@ -59,7 +60,10 @@ def start_proxy(
         None, "--processes", "-p", help="Number of CPU processes (default: CPU count)"
     ),
     port: int = typer.Option(9050, "--port", help="Port to listen on"),
-    debug: bool = typer.Option(False, "--debug", help="Enable debug logging"),
+    debug: bool = typer.Option(
+        default=False,
+        help="Enable debug logging",
+    ),
 ):
     """Start the SOCKS proxy server."""
     if debug:
@@ -87,9 +91,7 @@ def start_proxy(
 
     try:
         process_count = processes if processes is not None else os.cpu_count() or 1
-        logger.info(
-            f"Starting proxy server on {interface.ip}:{port} with {process_count} processes"
-        )
+        logger.info(f"Starting proxy server on {interface.ip}:{port} with {process_count} processes")
         create_proxy_server(interface.ip, port, process_count)
     except KeyboardInterrupt:
         logger.info("Shutting down proxy server")
