@@ -1,3 +1,3 @@
-"""SOCKS proxy for routing traffic through WiFi interface"""
+"""SOCKS proxy for routing traffic through WiFi interface."""
 
-__version__ = "1.1.0"
+__version__ = "2.3.6"
