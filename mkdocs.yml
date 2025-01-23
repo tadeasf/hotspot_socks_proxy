@@ -1,6 +1,6 @@
 site_name: Hotspot SOCKS Proxy
 site_description: Documentation for the Hotspot SOCKS Proxy package
-repo_url: https://github.com/yourusername/hotspot-socks-proxy
+repo_url: https://github.com/tadeasf/hotspot-socks-proxy
 repo_name: hotspot-socks-proxy
 
 theme:
