@@ -26,6 +26,7 @@ import os
 import socket
 import socketserver
 import time
+from pathlib import Path
 
 import psutil
 import pyperclip
@@ -65,12 +66,31 @@ class SocksProxy(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 def is_wifi_interface(ip: str) -> bool:
     """Verify if the IP belongs to the WiFi interface."""
-    for interface, addrs in psutil.net_if_addrs().items():
-        if interface.startswith(("en", "wlan", "wifi", "eth")):
-            for addr in addrs:
-                if addr.family == socket.AF_INET and addr.address == ip:
+    try:
+        for interface, addrs in psutil.net_if_addrs().items():
+            # Skip virtual and loopback interfaces
+            if interface.startswith(("lo", "vmnet", "docker", "veth", "bridge", "utun")):
+                continue
+
+            # Check if interface has the IP we're looking for
+            if any(addr.address == ip for addr in addrs if addr.family == socket.AF_INET):
+                # Check if it's a wireless interface
+                if os.name != "nt":  # Unix-like systems
+                    # Check for wireless extensions
+                    wireless_path = Path(f"/sys/class/net/{interface}/wireless")
+                    if wireless_path.exists():
+                        return True
+                    # Check interface name patterns
+                    if interface.startswith(("wlan", "wifi", "en", "wlp", "wl", "ap")):
+                        return True
+                elif interface.startswith(("Wi-Fi", "wlan", "WLAN")):  # Windows
                     return True
-    return False
+
+        logger.warning(f"IP {ip} found but not on a wireless interface")
+        return False
+    except Exception as e:
+        logger.error(f"Error checking wireless interface: {e}")
+        return False
 
 
 def run_server(host: str, port: int) -> None:
