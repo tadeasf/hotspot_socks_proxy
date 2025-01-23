@@ -27,7 +27,7 @@ from loguru import logger
 from rich.console import Console
 
 from hotspot_socks_proxy import __version__
-from hotspot_socks_proxy.core.network import scan_interfaces
+from hotspot_socks_proxy.core.network import select_interface
 from hotspot_socks_proxy.core.proxy import create_proxy_server
 from hotspot_socks_proxy.core.utils.log_config import LOG_DIR
 
@@ -55,11 +55,9 @@ def version_callback():
 
 
 @app.command(name="proxy")
-def start_proxy(
-    processes: int | None = typer.Option(
-        None, "--processes", "-p", help="Number of CPU processes (default: CPU count)"
-    ),
-    port: int = typer.Option(9050, "--port", help="Port to listen on"),
+def proxy(
+    port: int = typer.Option(9050, help="Port to listen on"),
+    processes: int | None = typer.Option(None, help="Number of worker processes"),
     debug: bool = typer.Option(
         default=False,
         help="Enable debug logging",
@@ -82,11 +80,11 @@ def start_proxy(
         console.print("[yellow]Please run with sudo or as root.")
         sys.exit(1)
 
-    # Get available interfaces
-    interface = scan_interfaces()
+    # Let user select interface
+    interface = select_interface()
     if not interface:
-        logger.error("No suitable network interface found")
-        console.print("[red]No suitable network interface found")
+        logger.error("No interface selected")
+        console.print("[red]No interface selected. Exiting.")
         return
 
     try:

@@ -20,14 +20,11 @@ Example:
         print(f"Found wireless interface {interface.name} with IP {interface.ip}")
 """
 
-import os
 import socket
 from dataclasses import dataclass
-from pathlib import Path
 
 import psutil
 from rich.console import Console
-from rich.progress import Progress
 
 console = Console()
 
@@ -49,51 +46,51 @@ class NetworkInterface:
     is_wireless: bool
 
 
-def scan_interfaces() -> NetworkInterface | None:
-    """Scan for available network interfaces and return the most suitable one."""
-    with Progress() as progress:
-        task = progress.add_task("Scanning network interfaces...", total=1)
+def get_active_interfaces() -> list[NetworkInterface]:
+    """Get all active network interfaces."""
+    interfaces = []
+    for name, addrs in psutil.net_if_addrs().items():
+        # Skip loopback and virtual interfaces
+        if name.startswith(("lo", "vmnet", "docker", "veth", "bridge", "utun")):
+            continue
 
-        interfaces = []
-        for name, addrs in psutil.net_if_addrs().items():
-            # Skip loopback and virtual interfaces
-            if name.startswith(("lo", "vmnet", "docker", "veth", "bridge", "utun")):
-                continue
+        # Get IPv4 address
+        ipv4 = next((addr.address for addr in addrs if addr.family == socket.AF_INET), None)
+        if not ipv4:
+            continue
 
-            # Get IPv4 address
-            ipv4 = next((addr.address for addr in addrs if addr.family == socket.AF_INET), None)
-            if not ipv4:
-                continue
+        # Check if interface is up
+        stats = psutil.net_if_stats().get(name)
+        if not stats or not stats.isup:
+            continue
 
-            # Check if interface is up and has valid IP
-            stats = psutil.net_if_stats().get(name)
-            if not stats or not stats.isup:
-                continue
+        interfaces.append(NetworkInterface(name=name, ip=ipv4, is_up=True, is_wireless=False))
 
-            # More comprehensive wireless detection
-            is_wireless = (
-                name.startswith(("wlan", "wifi", "en", "wlp", "wl"))
-                or "802.11" in str(stats.flags)  # Check for WiFi flags
-                or any(name.startswith(prefix) for prefix in ("ap", "wifi", "wlan"))
-                or (Path(f"/sys/class/net/{name}/wireless").exists() if os.name != "nt" else False)
-            )
+    return interfaces
 
-            interfaces.append(NetworkInterface(name=name, ip=ipv4, is_up=True, is_wireless=is_wireless))
 
-        progress.update(task, advance=1)
+def select_interface() -> NetworkInterface | None:
+    """Let user select the network interface."""
+    interfaces = get_active_interfaces()
 
-        # First try to find wireless interfaces that are actually connected
-        wireless = [iface for iface in interfaces if iface.is_wireless]
-        if wireless:
-            # Prioritize interfaces with non-local IPs
-            connected = [iface for iface in wireless if not iface.ip.startswith(("127.", "169.254."))]
-            if connected:
-                return connected[0]
-            return wireless[0]
-
-        # Fall back to any available interface with a valid IP
-        valid_interfaces = [iface for iface in interfaces if not iface.ip.startswith(("127.", "169.254."))]
-        if valid_interfaces:
-            return valid_interfaces[0]
-
+    if not interfaces:
+        console.print("[red]No active network interfaces found")
         return None
+
+    console.print("\n[bold cyan]Available Network Interfaces:")
+    for i, iface in enumerate(interfaces, 1):
+        console.print(f"[green]{i}.[/green] {iface.name} - {iface.ip}")
+
+    while True:
+        try:
+            choice = console.input("\n[bold yellow]Select interface number (or 'q' to quit): ")
+            if choice.lower() == "q":
+                return None
+
+            idx = int(choice) - 1
+            if 0 <= idx < len(interfaces):
+                return interfaces[idx]
+
+            console.print("[red]Invalid selection. Please try again.")
+        except ValueError:
+            console.print("[red]Please enter a valid number.")
