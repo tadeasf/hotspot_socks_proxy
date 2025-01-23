@@ -44,7 +44,9 @@ class ProxyUI:
         # Add a status line at the top
         self.status_line = Window(
             height=1,
-            content=FormattedTextControl(lambda: [("class:status", " Press Ctrl-C to exit")])
+            content=FormattedTextControl(
+                lambda: [("class:status", " Press Ctrl-C to exit")]
+            ),
         )
 
         # Main stats display
@@ -55,12 +57,14 @@ class ProxyUI:
         )
 
         # Create a cleaner layout with proper spacing
-        self.container = HSplit([
-            Window(height=1),  # Top padding
-            self.output,
-            Window(height=1),  # Bottom padding
-            self.status_line,
-        ])
+        self.container = HSplit(
+            [
+                Window(height=1),  # Top padding
+                self.output,
+                Window(height=1),  # Bottom padding
+                self.status_line,
+            ]
+        )
 
         self.layout = Layout(self.container)
         self.app = Application(
@@ -73,13 +77,23 @@ class ProxyUI:
     def _get_stats_text(self):
         stats = proxy_stats
         bandwidth = stats.get_bandwidth()
-        
+
         return [
             ("class:title", "╔══════════════════════════════════════╗\n"),
             ("class:title", f"║  SOCKS5 Proxy: {self.server_ip}:9050  ║\n"),
             ("class:title", "╠══════════════════════════════════════╣\n"),
-            ("class:stats", f"║  Bandwidth: {self._format_bytes(bandwidth)}/s" + " " * (31 - len(self._format_bytes(bandwidth))) + "║\n"),
-            ("class:stats", f"║  Active Connections: {stats.active_connections}" + " " * (27 - len(str(stats.active_connections))) + "║\n"),
+            (
+                "class:stats",
+                f"║  Bandwidth: {self._format_bytes(bandwidth)}/s"
+                + " " * (31 - len(self._format_bytes(bandwidth)))
+                + "║\n",
+            ),
+            (
+                "class:stats",
+                f"║  Active Connections: {stats.active_connections}"
+                + " " * (27 - len(str(stats.active_connections)))
+                + "║\n",
+            ),
             ("class:title", "╚══════════════════════════════════════╝\n"),
         ]
 

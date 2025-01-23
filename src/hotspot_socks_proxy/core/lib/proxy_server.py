@@ -67,7 +67,9 @@ def run_server(host: str, port: int):
             return
 
         if os.name != "nt" and os.geteuid() != 0:
-            console.print("[yellow]Warning: Running without root privileges might limit some functionality")
+            console.print(
+                "[yellow]Warning: Running without root privileges might limit some functionality"
+            )
 
         server = SocksProxy((host, port), SocksHandler)
         server.serve_forever()
@@ -85,8 +87,8 @@ def run_server(host: str, port: int):
 def create_proxy_server(host: str, port: int, num_processes: int):
     """Create and run the proxy server with UI"""
     processes = []
-    
-    os.system('clear' if os.name != 'nt' else 'cls')
+
+    os.system("clear" if os.name != "nt" else "cls")
     ui = ProxyUI(server_ip=host)
 
     try:
@@ -112,7 +114,9 @@ def create_proxy_server(host: str, port: int, num_processes: int):
             for process in list(processes):
                 if not process.is_alive():
                     processes.remove(process)
-                    new_process = multiprocessing.Process(target=run_server, args=(host, port))
+                    new_process = multiprocessing.Process(
+                        target=run_server, args=(host, port)
+                    )
                     new_process.daemon = True
                     processes.append(new_process)
                     new_process.start()

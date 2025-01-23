@@ -64,7 +64,9 @@ class SocksHandler(socketserver.BaseRequestHandler):
                 console.print(f"[green]Resolved {domain} using system resolver: {ip}")
                 return ip
             except socket.gaierror as e:
-                raise DNSResolutionError(f"Both custom and system DNS resolution failed: {e!s}")
+                raise DNSResolutionError(
+                    f"Both custom and system DNS resolution failed: {e!s}"
+                )
 
     def handle(self):
         """Handle incoming SOCKS5 connection"""
@@ -79,7 +81,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
 
             # SOCKS5 connection request
             version, cmd, _, address_type = struct.unpack("!BBBB", self.request.recv(4))
-            
+
             if cmd != 1:  # Only support CONNECT method
                 self.request.send(struct.pack("!BBBBIH", 5, 7, 0, 1, 0, 0))
                 return
@@ -100,9 +102,17 @@ class SocksHandler(socketserver.BaseRequestHandler):
                 remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 remote.connect((address, port))
                 bind_address = remote.getsockname()
-                self.request.send(struct.pack("!BBBBIH", 5, 0, 0, 1,
-                                            int(bind_address[0].replace(".", "")),
-                                            bind_address[1]))
+                self.request.send(
+                    struct.pack(
+                        "!BBBBIH",
+                        5,
+                        0,
+                        0,
+                        1,
+                        int(bind_address[0].replace(".", "")),
+                        bind_address[1],
+                    )
+                )
             except Exception as e:
                 console.print(f"[red]Connection failed: {e}")
                 self.request.send(struct.pack("!BBBBIH", 5, 5, 0, 1, 0, 0))
@@ -119,7 +129,7 @@ class SocksHandler(socketserver.BaseRequestHandler):
         """Forward data between local and remote sockets"""
         while True:
             r, w, e = select.select([local, remote], [], [], 60)
-            
+
             if not r:  # Timeout
                 break
 
@@ -130,7 +140,9 @@ class SocksHandler(socketserver.BaseRequestHandler):
                     if not data:
                         return
                     other.send(data)
-                    proxy_stats.update_bytes(len(data), 0 if sock is local else len(data))
+                    proxy_stats.update_bytes(
+                        len(data), 0 if sock is local else len(data)
+                    )
                 except Exception as e:
                     console.print(f"[red]Forward error: {e}")
                     return

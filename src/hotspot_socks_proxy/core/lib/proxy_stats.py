@@ -18,10 +18,10 @@ to be accessed from multiple processes and threads without race conditions.
 Example:
     # Global stats object is automatically created
     from .proxy_stats import proxy_stats
-    
+
     # Track new connection
     proxy_stats.connection_started()
-    
+
     # Update transfer statistics
     proxy_stats.update_bytes(sent=1024, received=2048)
 """
@@ -52,7 +52,9 @@ class ProxyStats:
             now = time.time()
             # Calculate bandwidth over last 5 seconds
             cutoff = now - 5
-            recent = [(bytes_, ts) for bytes_, ts in self.bandwidth_history if ts > cutoff]
+            recent = [
+                (bytes_, ts) for bytes_, ts in self.bandwidth_history if ts > cutoff
+            ]
             if not recent:
                 return 0
             total_bytes = sum(bytes_ for bytes_, _ in recent)

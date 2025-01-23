@@ -12,7 +12,7 @@ The module abstracts away the complexity of:
 
 Example:
     from hotspot_socks_proxy.core.proxy import create_proxy_server
-    
+
     # Start a SOCKS proxy server on localhost:9050 with 4 processes
     create_proxy_server("127.0.0.1", 9050, 4)
 
