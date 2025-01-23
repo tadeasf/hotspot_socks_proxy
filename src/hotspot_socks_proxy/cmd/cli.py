@@ -28,6 +28,7 @@ from rich.console import Console
 from hotspot_socks_proxy import __version__
 from hotspot_socks_proxy.core.network import scan_interfaces
 from hotspot_socks_proxy.core.proxy import create_proxy_server
+from hotspot_socks_proxy.core.utils.log_config import LOG_DIR, logger
 
 console = Console()
 app = typer.Typer(help="SOCKS proxy for routing traffic through WiFi interface")
@@ -58,9 +59,21 @@ def start_proxy(
         None, "--processes", "-p", help="Number of CPU processes (default: CPU count)"
     ),
     port: int = typer.Option(9050, "--port", help="Port to listen on"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging"),
 ):
     """Start the SOCKS proxy server."""
+    if debug:
+        logger.remove()
+        logger.add(sys.stderr, level="DEBUG")
+        logger.add(
+            LOG_DIR / "proxy.log",
+            level="DEBUG",
+        )
+
+    logger.info("Starting SOCKS proxy server")
+
     if not check_root():
+        logger.error("Root privileges required")
         console.print("[red]This program requires root privileges to run properly.")
         console.print("[yellow]Please run with sudo or as root.")
         sys.exit(1)
@@ -68,16 +81,20 @@ def start_proxy(
     # Get available interfaces
     interface = scan_interfaces()
     if not interface:
+        logger.error("No suitable network interface found")
         console.print("[red]No suitable network interface found")
         return
 
     try:
-        # Convert None to CPU count before passing to create_proxy_server
         process_count = processes if processes is not None else os.cpu_count() or 1
+        logger.info(
+            f"Starting proxy server on {interface.ip}:{port} with {process_count} processes"
+        )
         create_proxy_server(interface.ip, port, process_count)
     except KeyboardInterrupt:
-        pass
+        logger.info("Shutting down proxy server")
     except Exception as e:
+        logger.exception("Error starting proxy server")
         console.print(f"[red]Error: {e}")
 
 

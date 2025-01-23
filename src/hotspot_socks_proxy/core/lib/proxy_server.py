@@ -31,6 +31,7 @@ import psutil
 import pyperclip
 from rich.console import Console
 
+from hotspot_socks_proxy.core.utils.log_config import logger
 from hotspot_socks_proxy.core.utils.prompt.proxy_ui import create_proxy_ui
 
 from .socks_handler import SocksHandler
@@ -82,10 +83,12 @@ def run_server(host: str, port: int) -> None:
     server: SocksProxy | None = None
     try:
         if not is_wifi_interface(host):
+            logger.error(f"{host} is not the WiFi interface IP")
             console.print(f"[red]Error: {host} is not the WiFi interface IP")
             return
 
         if os.name != "nt" and os.geteuid() != 0:
+            logger.warning("Running without root privileges")
             console.print(
                 """
             [yellow]Warning: Running without root privileges may limit functionality.
@@ -93,15 +96,18 @@ def run_server(host: str, port: int) -> None:
             )
 
         server = SocksProxy((host, port), SocksHandler)
+        logger.info(f"Server process started on {host}:{port}")
         server.serve_forever()
     except KeyboardInterrupt:
-        pass
+        logger.info("Server process stopping")
     except Exception as e:
+        logger.exception("Server process error")
         console.print(f"[red]Server error: {e}")
     finally:
         if server:
             with contextlib.suppress(Exception):
                 server.server_close()
+                logger.info("Server closed")
 
 
 def create_proxy_server(host: str, port: int, num_processes: int) -> None:

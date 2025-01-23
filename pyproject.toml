@@ -1,6 +1,6 @@
 [project]
 name = "hotspot-socks-proxy"
-version = "3.0.4"
+version = "3.0.5"
 description = "SOCKS proxy for routing traffic through WiFi interface"
 authors = [
     { name = "tadeasf", email = "business@tadeasfort.com" }
@@ -61,3 +61,8 @@ combine-as-imports = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.rye]
+dev-dependencies = [
+    "loguru>=0.7.3",
+]
