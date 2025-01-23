@@ -1,13 +1,13 @@
 [project]
 name = "hotspot-socks-proxy"
-version = "3.3.13"
+version = "3.4.0"
 description = "SOCKS proxy for routing traffic through WiFi interface"
 authors = [
     { name = "tadeasf", email = "business@tadeasfort.com" }
 ]
 dependencies = [
     "typer>=0.15.1",
-    "prompt-toolkit>=3.0.48",
+    "prompt-toolkit>=3.0.50",
     "rich>=13.9.4",
     "psutil>=5.9.0",
     "pyperclip>=1.9.0",
@@ -15,9 +15,10 @@ dependencies = [
     "dnspython>=2.7.0",
     "mkdocs-gen-files>=0.5.0",
     "loguru>=0.7.3",
+    "click>=8.1.8",
 ]
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = ">= 3.9"
 
 [build-system]
 requires = ["pdm-backend"]

@@ -19,84 +19,54 @@ Example:
     $ python -m hotspot_socks_proxy proxy --port 9050 --processes 4
 """
 
-import os
-import sys
-
 import typer
-from loguru import logger
+import sys
+import os
 from rich.console import Console
-
-from hotspot_socks_proxy import __version__
-from hotspot_socks_proxy.core.network import select_interface
-from hotspot_socks_proxy.core.proxy import create_proxy_server
-from hotspot_socks_proxy.core.utils.log_config import LOG_DIR
+from ..core.network import select_interface
+from ..core.proxy import create_proxy_server
 
 console = Console()
-app = typer.Typer(help="SOCKS proxy for routing traffic through WiFi interface")
+app = typer.Typer(help="SOCKS proxy for routing traffic through selected network interface")
 
-
-def check_root() -> bool:
-    """Check if the script is running with root privileges."""
-    if os.name == "nt":  # Windows
+def check_root():
+    """Check if the script is running with root privileges"""
+    if os.name == 'nt':  # Windows
         try:
             import ctypes
-
             return ctypes.windll.shell32.IsUserAnAdmin()
-        except Exception:
+        except:
             return False
     else:  # Unix-like
         return os.geteuid() == 0
 
-
-@app.callback(invoke_without_command=True)
-def version_callback():
-    """Show version information."""
-    console.print(f"[cyan]Hotspot SOCKS Proxy v{__version__}[/cyan]")
-
-
 @app.command(name="proxy")
-def proxy(
-    port: int = typer.Option(9050, help="Port to listen on"),
-    processes: int | None = typer.Option(None, help="Number of worker processes"),
-    debug: bool = typer.Option(
-        default=False,
-        help="Enable debug logging",
-    ),
+def start_proxy(
+    processes: int | None = typer.Option(None, "--processes", "-p", help="Number of proxy processes (default: CPU count)"),
+    port: int = typer.Option(9050, "--port", help="Port to listen on")
 ):
-    """Start the SOCKS proxy server."""
-    if debug:
-        logger.remove()
-        logger.add(sys.stderr, level="DEBUG")
-        logger.add(
-            LOG_DIR / "proxy.log",
-            level="DEBUG",
-        )
-
-    logger.info("Starting SOCKS proxy server")
-
+    """Start the SOCKS proxy server"""
     if not check_root():
-        logger.error("Root privileges required")
         console.print("[red]This program requires root privileges to run properly.")
         console.print("[yellow]Please run with sudo or as root.")
         sys.exit(1)
-
+    
     # Let user select interface
     interface = select_interface()
     if not interface:
-        logger.error("No interface selected")
         console.print("[red]No interface selected. Exiting.")
         return
-
+    
+    actual_processes = processes if processes is not None else os.cpu_count()
+    if actual_processes is None:
+        actual_processes = 1
+        
     try:
-        process_count = processes if processes is not None else os.cpu_count() or 1
-        logger.info(f"Starting proxy server on {interface.ip}:{port} with {process_count} processes")
-        create_proxy_server(interface.ip, port, process_count)
+        create_proxy_server(interface.ip, port, actual_processes)
     except KeyboardInterrupt:
-        logger.info("Shutting down proxy server")
+        pass
     except Exception as e:
-        logger.exception("Error starting proxy server")
         console.print(f"[red]Error: {e}")
-
 
 if __name__ == "__main__":
     app()
