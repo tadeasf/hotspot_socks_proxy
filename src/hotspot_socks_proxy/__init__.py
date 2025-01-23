@@ -1,19 +1,18 @@
 """SOCKS proxy for routing traffic through WiFi interface."""
 
 import pathlib
-import sys
 
-# Update version check to use newer Python version
-if sys.version_info >= (3, 10):  # Update to match pyproject.toml requirement
+# For Python < 3.11, use tomli instead of tomllib
+try:
     import tomllib
-else:
+except ImportError:
     import tomli as tomllib
 
 
 def get_version() -> str:
     """Read version from pyproject.toml."""
     current_dir = pathlib.Path(__file__).parent
-    parents = [current_dir, *list(current_dir.parents)]  # Use list unpacking
+    parents = [current_dir, *list(current_dir.parents)]
 
     for parent in parents:
         pyproject_path = parent / "pyproject.toml"
