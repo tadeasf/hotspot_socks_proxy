@@ -1,12 +1,33 @@
-"""HTTP proxy functionality"""
-from rich.console import Console
-import socket
+"""HTTP proxy server implementation.
+
+This module implements a basic HTTP proxy server that:
+- Handles HTTP requests
+- Forwards traffic to remote servers
+- Manages client connections
+- Provides connection statistics
+- Supports multiple simultaneous connections
+
+The proxy server is multi-threaded and supports:
+- HTTP/1.1 protocol
+- Keep-alive connections
+- Connection pooling
+- Error handling
+- Progress reporting
+
+Example:
+    # Start an HTTP proxy on localhost:8080
+    run_http_proxy("127.0.0.1", 8080)
+"""
+
 import select
+import socket
 import threading
-from typing import Optional
+
 from prompt_toolkit.shortcuts import ProgressBar
+from rich.console import Console
 
 console = Console()
+
 
 class HTTPProxy:
     def __init__(self, host: str, port: int):
@@ -22,15 +43,15 @@ class HTTPProxy:
                 return
 
             # Parse the first line of the request
-            first_line = request.split(b'\n')[0].decode('utf-8')
-            url = first_line.split(' ')[1]
+            first_line = request.split(b"\n")[0].decode("utf-8")
+            url = first_line.split(" ")[1]
 
             # Extract hostname and port from URL
             http_pos = url.find("://")
             if http_pos == -1:
                 temp = url
             else:
-                temp = url[(http_pos + 3):]
+                temp = url[(http_pos + 3) :]
 
             port_pos = temp.find(":")
             webserver_pos = temp.find("/")
@@ -41,7 +62,7 @@ class HTTPProxy:
                 port = 80
                 webserver = temp[:webserver_pos]
             else:
-                port = int(temp[(port_pos + 1):webserver_pos])
+                port = int(temp[(port_pos + 1) : webserver_pos])
                 webserver = temp[:port_pos]
 
             # Connect to remote server
@@ -74,14 +95,17 @@ class HTTPProxy:
         try:
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
-            console.print(f"[green]HTTP proxy server started on {self.host}:{self.port}")
+            console.print(
+                f"[green]HTTP proxy server started on {self.host}:{self.port}"
+            )
 
             while True:
                 client_socket, client_address = self.server_socket.accept()
-                console.print(f"[blue]Accepted connection from {client_address[0]}:{client_address[1]}")
+                console.print(
+                    f"[blue]Accepted connection from {client_address[0]}:{client_address[1]}"
+                )
                 client_thread = threading.Thread(
-                    target=self.handle_client,
-                    args=(client_socket, client_address)
+                    target=self.handle_client, args=(client_socket, client_address)
                 )
                 client_thread.setDaemon(True)
                 client_thread.start()
@@ -93,12 +117,13 @@ class HTTPProxy:
         finally:
             self.server_socket.close()
 
+
 def run_http_proxy(host: str, port: int = 8080):
     """Run HTTP proxy server"""
     with ProgressBar(title="Starting HTTP proxy...") as pb:
         for _ in pb(range(1)):
             proxy = HTTPProxy(host, port)
-    
+
     try:
         proxy.start()
     except Exception as e:

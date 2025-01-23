@@ -1,6 +1,6 @@
 [project]
 name = "hotspot-socks-proxy"
-version = "2.3.6"
+version = "2.3.9"
 description = "SOCKS proxy for routing traffic through WiFi interface"
 authors = [
     { name = "tadeasf", email = "business@tadeasfort.com" }
@@ -14,7 +14,7 @@ dependencies = [
     "dnspython>=2.7.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = ">= 3.10"
 
 [build-system]
 requires = ["pdm-backend"]
@@ -41,7 +41,6 @@ ignore = [
     "D212",  # multi-line-summary-first-line
     "ANN001", # missing-type-self
     "ANN002", # missing-type-cls
-    "ANN001", # missing-type-self (was ANN101)
     "ANN201", # missing-type-return
     "ANN401", # missing-type-annotation
     "BLE001", # blacklisted-import

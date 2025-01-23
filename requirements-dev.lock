@@ -34,6 +34,7 @@ shellingham==1.5.4
 typer==0.15.1
     # via hotspot-socks-proxy
 typing-extensions==4.12.2
+    # via rich
     # via typer
 wcwidth==0.2.13
     # via prompt-toolkit
