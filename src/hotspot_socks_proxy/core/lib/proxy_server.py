@@ -25,12 +25,13 @@ import os
 import socket
 import socketserver
 import threading
+import time
 
 import psutil
 import pyperclip
 from rich.console import Console
 
-from .proxy_ui import ProxyUI
+from ..utils.prompt.proxy_ui import create_proxy_ui
 from .socks_handler import SocksHandler
 
 console = Console()
@@ -88,28 +89,34 @@ def create_proxy_server(host: str, port: int, num_processes: int):
     """Create and run the proxy server with UI"""
     processes = []
 
-    os.system("clear" if os.name != "nt" else "cls")
-    ui = ProxyUI(server_ip=host)
+    # Clear screen once at start
+    console.clear()
+    
+    with console.status("[bold green]Starting proxy server...", spinner="dots") as status:
+        # Initialize UI
+        ui_thread = create_proxy_ui(host, port)
+        ui_thread.start()
 
-    try:
-        proxy_address = f"{host}:{port}"
-        pyperclip.copy(proxy_address)
-    except Exception:
-        pass
+        # Copy address to clipboard
+        try:
+            proxy_address = f"{host}:{port}"
+            pyperclip.copy(proxy_address)
+            status.update("[bold green]Proxy address copied to clipboard")
+            time.sleep(0.5)
+        except Exception:
+            pass
 
-    def run_ui():
-        ui.run()
-
-    ui_thread = threading.Thread(target=run_ui, daemon=True)
-    ui_thread.start()
-
-    try:
+        # Start worker processes
+        status.update(f"[bold green]Starting {num_processes} worker processes...")
         for _ in range(num_processes):
             process = multiprocessing.Process(target=run_server, args=(host, port))
             process.daemon = True
             processes.append(process)
             process.start()
+            time.sleep(0.1)  # Small delay between process starts
 
+    try:
+        # Monitor processes
         while processes:
             for process in list(processes):
                 if not process.is_alive():
@@ -123,7 +130,7 @@ def create_proxy_server(host: str, port: int, num_processes: int):
                 process.join(timeout=0.1)
 
     except KeyboardInterrupt:
-        pass
+        console.print("\n[yellow]Shutting down proxy server...")
     finally:
         for process in processes:
             if process.is_alive():

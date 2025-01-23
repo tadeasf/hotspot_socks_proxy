@@ -31,6 +31,8 @@ rich==13.9.4
     # via typer
 shellingham==1.5.4
     # via typer
+tomli==2.2.1
+    # via hotspot-socks-proxy
 typer==0.15.1
     # via hotspot-socks-proxy
 typing-extensions==4.12.2

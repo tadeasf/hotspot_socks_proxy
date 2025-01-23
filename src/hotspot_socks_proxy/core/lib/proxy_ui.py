@@ -23,86 +23,87 @@ Example:
     ui_thread.start()
 """
 
-from prompt_toolkit.application import Application
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout.containers import HSplit, Window
-from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.layout.layout import Layout
+import threading
+import time
+from typing import Optional
+
+from rich.console import Console
+from rich.live import Live
+from rich.panel import Panel
+from rich.spinner import Spinner
+from rich.table import Table
+from rich.text import Text
 
 from .proxy_stats import proxy_stats
 
+console = Console()
 
 class ProxyUI:
-    def __init__(self, server_ip: str):
+    def __init__(self, server_ip: str, port: int = 9050):
         self.server_ip = server_ip
-        self.kb = KeyBindings()
-
-        @self.kb.add("c-c")
-        def _(event):
-            event.app.exit()
-
-        # Add a status line at the top
-        self.status_line = Window(
-            height=1,
-            content=FormattedTextControl(
-                lambda: [("class:status", " Press Ctrl-C to exit")]
-            ),
-        )
-
-        # Main stats display
-        self.output = Window(
-            content=FormattedTextControl(self._get_stats_text),
-            always_hide_cursor=True,
-            wrap_lines=True,
-        )
-
-        # Create a cleaner layout with proper spacing
-        self.container = HSplit(
-            [
-                Window(height=1),  # Top padding
-                self.output,
-                Window(height=1),  # Bottom padding
-                self.status_line,
-            ]
-        )
-
-        self.layout = Layout(self.container)
-        self.app = Application(
-            layout=self.layout,
-            key_bindings=self.kb,
-            full_screen=True,
-            mouse_support=True,
-        )
-
-    def _get_stats_text(self):
-        stats = proxy_stats
-        bandwidth = stats.get_bandwidth()
-
-        return [
-            ("class:title", "╔══════════════════════════════════════╗\n"),
-            ("class:title", f"║  SOCKS5 Proxy: {self.server_ip}:9050  ║\n"),
-            ("class:title", "╠══════════════════════════════════════╣\n"),
-            (
-                "class:stats",
-                f"║  Bandwidth: {self._format_bytes(bandwidth)}/s"
-                + " " * (31 - len(self._format_bytes(bandwidth)))
-                + "║\n",
-            ),
-            (
-                "class:stats",
-                f"║  Active Connections: {stats.active_connections}"
-                + " " * (27 - len(str(stats.active_connections)))
-                + "║\n",
-            ),
-            ("class:title", "╚══════════════════════════════════════╝\n"),
-        ]
-
-    def _format_bytes(self, bytes_):
+        self.port = port
+        self.running = True
+        self._refresh_rate = 1.0  # Refresh every second instead of constantly
+        self._last_bandwidth = 0
+        self._spinner = Spinner('dots')
+        
+    def _format_bytes(self, bytes_: float) -> str:
         for unit in ["B", "KB", "MB", "GB"]:
             if bytes_ < 1024:
                 return f"{bytes_:.1f} {unit}"
             bytes_ /= 1024
         return f"{bytes_:.1f} TB"
 
+    def _generate_table(self) -> Table:
+        table = Table(show_header=False, box=None)
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green")
+
+        bandwidth = proxy_stats.get_bandwidth()
+        # Only update bandwidth if it changed significantly (avoid jitter)
+        if abs(bandwidth - self._last_bandwidth) > 100:
+            self._last_bandwidth = bandwidth
+
+        table.add_row(
+            "Bandwidth",
+            f"{self._spinner.render()} {self._format_bytes(self._last_bandwidth)}/s"
+        )
+        table.add_row(
+            "Active Connections",
+            str(proxy_stats.active_connections)
+        )
+        table.add_row(
+            "Total Data Transferred",
+            self._format_bytes(proxy_stats.total_bytes_sent + proxy_stats.total_bytes_received)
+        )
+        return table
+
+    def _generate_display(self) -> Panel:
+        title = Text(f"SOCKS5 Proxy: {self.server_ip}:{self.port}", style="bold cyan")
+        table = self._generate_table()
+        return Panel(
+            table,
+            title=title,
+            subtitle="Press Ctrl+C to exit",
+            border_style="blue"
+        )
+
     def run(self):
-        self.app.run()
+        """Run the UI with efficient updates."""
+        try:
+            with Live(
+                self._generate_display(),
+                refresh_per_second=2,  # Limit refresh rate
+                transient=True
+            ) as live:
+                while self.running:
+                    live.update(self._generate_display())
+                    time.sleep(self._refresh_rate)
+        except KeyboardInterrupt:
+            self.running = False
+
+def create_ui(host: str, port: int) -> Optional[threading.Thread]:
+    """Create and return UI thread."""
+    ui = ProxyUI(host, port)
+    thread = threading.Thread(target=ui.run, daemon=True)
+    return thread
