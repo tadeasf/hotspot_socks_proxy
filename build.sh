@@ -51,3 +51,7 @@ echo "Publishing to PyPI..."
 rye publish --yes || { echo "Publishing failed"; exit 1; }
 
 echo "Build process completed successfully"
+
+git add .
+opencommit --yes
+git push
