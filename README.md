@@ -110,7 +110,7 @@ src/hotspot_socks_proxy/
 
 ## Documentation
 
-Full documentation is available at [GitHub Pages URL].
+Full documentation is available at [[GitHub Pages URL](https://tadeasf.github.io/hotspot_socks_proxy)].
 
 ## License
 
